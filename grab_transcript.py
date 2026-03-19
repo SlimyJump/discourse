@@ -3,8 +3,11 @@ from urllib.request import Request, urlopen
 
 import feedparser
 
-YOUTUBE_FEED_URL = (
+YOUTUBE_FEED_URL_A = (
     "https://www.youtube.com/feeds/videos.xml?channel_id=UCXIJgqnII2ZOINSWNOGFThA"
+)
+YOUTUBE_FEED_URL_B = (
+    "https://www.youtube.com/feeds/videos.xml?channel_id=UCupvZG-5ko_eiXAupbDfxWw"
 )
 
 
@@ -72,24 +75,23 @@ def top_results(feed: feedparser.FeedParserDict, limit: int = 10) -> list[dict]:
     return results
 
 
-def print_top_results(feed_url: str, limit: int = 10) -> None:
+def build_team_list(feed_url: str, limit: int = 10) -> list[tuple[str, str, str]]:
     feed = parse_feed(feed_url)
-    print(f"length of feed results {len(feed.entries)}")
     if len(feed.entries) == 0:
         http_info = getattr(feed, "_http_info", {})
+        print(f"length of feed results {len(feed.entries)}")
         print(f"http status: {http_info.get('status')}")
         print(f"content type: {http_info.get('content_type')}")
         print(f"bytes read: {getattr(feed, '_content_length', 0)}")
         if getattr(feed, "bozo", 0):
             print(f"parse error: {getattr(feed, 'bozo_exception', None)}")
 
-    for idx, item in enumerate(top_results(feed, limit), start=1):
-        print(f"{idx}. {item['title']}")
-        print(f"   description: {item['description']}")
-        print(f"   video_id: {item['video_id']}")
+    results = top_results(feed, limit)
+    return [(item["title"], item["description"], item["video_id"]) for item in results]
 
 
-print_top_results(YOUTUBE_FEED_URL, limit=10)
+Team_A_List = build_team_list(YOUTUBE_FEED_URL_A, limit=10)
+Team_B_List = build_team_list(YOUTUBE_FEED_URL_B, limit=10)
 
 
 ############# GET TRANSCRIPT
