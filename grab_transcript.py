@@ -1,7 +1,9 @@
 import ssl
+from pathlib import Path
 from urllib.request import Request, urlopen
 
 import feedparser
+from youtube_transcript_api import YouTubeTranscriptApi
 
 YOUTUBE_FEED_URL_A = (
     "https://www.youtube.com/feeds/videos.xml?channel_id=UCXIJgqnII2ZOINSWNOGFThA"
@@ -94,15 +96,38 @@ Team_A_List = build_team_list(YOUTUBE_FEED_URL_A, limit=10)
 Team_B_List = build_team_list(YOUTUBE_FEED_URL_B, limit=10)
 
 
+print(f"  Team_A_List len  {len(Team_A_List)}")
+print(f"  Team_B_List len  {len(Team_B_List)}")
+
+exit()
+
 ############# GET TRANSCRIPT
 
-# from youtube_transcript_api import YouTubeTranscriptApi
+team_a_list = Team_A_List
+team_b_list = Team_B_List
 
-# ytt_api = YouTubeTranscriptApi()
 
-# #### rick roll
-# #### transcript = ytt_api.fetch("dQw4w9WgXcQ")
-# transcript = ytt_api.fetch("o-He1C-fU-s")
+def fetch_transcript_text(video_id: str) -> str | None:
+    if not video_id:
+        return None
+    try:
+        transcript = YouTubeTranscriptApi().fetch(video_id)
+    except Exception as exc:
+        print(f"transcript fetch failed for {video_id}: {exc}")
+        return None
 
-# for entry in transcript[:5]:
-#     print(entry.text)
+    return "\n".join(entry.text for entry in transcript)
+
+
+def save_transcript_files(prefix: str, items: list[tuple[str, str, str]]) -> None:
+    for _title, _description, video_id in items:
+        transcript_text = fetch_transcript_text(video_id)
+        if not transcript_text:
+            continue
+
+        filename = f"{prefix}{video_id}.txt"
+        Path(filename).write_text(transcript_text, encoding="utf-8")
+
+
+save_transcript_files("team_a_", team_a_list)
+save_transcript_files("team_b_", team_b_list)
