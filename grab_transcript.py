@@ -99,7 +99,8 @@ Team_B_List = build_team_list(YOUTUBE_FEED_URL_B, limit=10)
 print(f"  Team_A_List len  {len(Team_A_List)}")
 print(f"  Team_B_List len  {len(Team_B_List)}")
 
-exit()
+for _title, _description, video_id in Team_A_List:
+ 
 
 ############# GET TRANSCRIPT
 
