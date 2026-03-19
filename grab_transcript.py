@@ -5,12 +5,11 @@ from urllib.request import Request, urlopen
 import feedparser
 from youtube_transcript_api import YouTubeTranscriptApi
 
-YOUTUBE_FEED_URL_A = (
-    "https://www.youtube.com/feeds/videos.xml?channel_id=UCXIJgqnII2ZOINSWNOGFThA"
-)
-YOUTUBE_FEED_URL_B = (
-    "https://www.youtube.com/feeds/videos.xml?channel_id=UCupvZG-5ko_eiXAupbDfxWw"
-)
+YOUTUBE_SEARCH_QUERY_A = "california fox news"
+YOUTUBE_SEARCH_QUERY_B = "california cnn"
+CHANNEL_NAME_A = "Fox News"
+CHANNEL_NAME_B = "CNN"
+SEARCH_PAGE_LIMIT = 6
 DISCOURSE_DIR = Path("discourse")
 DISCOURSE_DIR.mkdir(exist_ok=True)
 
@@ -66,36 +65,90 @@ def extract_video_id(entry: feedparser.FeedParserDict) -> str:
     return ""
 
 
-def top_results(feed: feedparser.FeedParserDict, limit: int = 10) -> list[dict]:
-    results: list[dict] = []
-    for entry in feed.entries[:limit]:
-        results.append(
-            {
-                "title": entry.get("title", "").strip(),
-                "description": entry.get("summary", entry.get("description", "")).strip(),
-                "video_id": extract_video_id(entry),
-            }
-        )
+def has_transcript(video_id: str) -> bool:
+    try:
+        YouTubeTranscriptApi.list_transcripts(video_id)
+        return True
+    except Exception:
+        return False
+
+
+def extract_channel_name(entry: feedparser.FeedParserDict) -> str:
+    author = entry.get("author") or entry.get("author_detail", {}).get("name", "")
+    return str(author).strip()
+
+
+def make_search_url(query: str) -> str:
+    normalized = "+".join(query.strip().split())
+    return f"https://www.youtube.com/feeds/videos.xml?search_query={normalized}"
+
+
+def get_next_link(feed: feedparser.FeedParserDict) -> str:
+    for link in feed.get("feed", {}).get("links", []):
+        if link.get("rel") == "next":
+            return link.get("href", "")
+    return ""
+
+
+def build_team_list(
+    search_query: str,
+    channel_name: str,
+    limit: int = 10,
+    page_limit: int = SEARCH_PAGE_LIMIT,
+) -> list[tuple[str, str, str]]:
+    results: list[tuple[str, str, str]] = []
+    seen_ids: set[str] = set()
+    url = make_search_url(search_query)
+    pages_fetched = 0
+
+    while url and len(results) < limit and pages_fetched < page_limit:
+        feed = parse_feed(url)
+        pages_fetched += 1
+
+        if len(feed.entries) == 0:
+            http_info = getattr(feed, "_http_info", {})
+            print(f"length of feed results {len(feed.entries)}")
+            print(f"http status: {http_info.get('status')}")
+            print(f"content type: {http_info.get('content_type')}")
+            print(f"bytes read: {getattr(feed, '_content_length', 0)}")
+            if getattr(feed, "bozo", 0):
+                print(f"parse error: {getattr(feed, 'bozo_exception', None)}")
+            break
+
+        for entry in feed.entries:
+            if len(results) >= limit:
+                break
+
+            if extract_channel_name(entry) != channel_name:
+                continue
+
+            video_id = extract_video_id(entry)
+            if not video_id or video_id in seen_ids:
+                continue
+
+            if not has_transcript(video_id):
+                continue
+
+            seen_ids.add(video_id)
+            results.append(
+                (
+                    entry.get("title", "").strip(),
+                    entry.get("summary", entry.get("description", "")).strip(),
+                    video_id,
+                )
+            )
+
+        url = get_next_link(feed)
+
     return results
 
 
-def build_team_list(feed_url: str, limit: int = 10) -> list[tuple[str, str, str]]:
-    feed = parse_feed(feed_url)
-    if len(feed.entries) == 0:
-        http_info = getattr(feed, "_http_info", {})
-        print(f"length of feed results {len(feed.entries)}")
-        print(f"http status: {http_info.get('status')}")
-        print(f"content type: {http_info.get('content_type')}")
-        print(f"bytes read: {getattr(feed, '_content_length', 0)}")
-        if getattr(feed, "bozo", 0):
-            print(f"parse error: {getattr(feed, 'bozo_exception', None)}")
-
-    results = top_results(feed, limit)
-    return [(item["title"], item["description"], item["video_id"]) for item in results]
-
-
-Team_A_List = build_team_list(YOUTUBE_FEED_URL_A, limit=10)
-Team_B_List = build_team_list(YOUTUBE_FEED_URL_B, limit=10)
+Team_A_List = build_team_list(
+    YOUTUBE_SEARCH_QUERY_A, CHANNEL_NAME_A, limit=10, page_limit=SEARCH_PAGE_LIMIT
+)
+Team_B_List = build_team_list(
+    YOUTUBE_SEARCH_QUERY_B, CHANNEL_NAME_B, limit=10, page_limit=SEARCH_PAGE_LIMIT
+)
 
 
 print(f"  Team_A_List len  {len(Team_A_List)}")
