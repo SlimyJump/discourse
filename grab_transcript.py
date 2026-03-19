@@ -11,6 +11,8 @@ YOUTUBE_FEED_URL_A = (
 YOUTUBE_FEED_URL_B = (
     "https://www.youtube.com/feeds/videos.xml?channel_id=UCupvZG-5ko_eiXAupbDfxWw"
 )
+DISCOURSE_DIR = Path("discourse")
+DISCOURSE_DIR.mkdir(exist_ok=True)
 
 
 def fetch_feed_bytes(url: str) -> tuple[bytes, dict]:
@@ -127,7 +129,7 @@ def save_transcript_files(prefix: str, items: list[tuple[str, str, str]]) -> Non
             continue
 
         filename = f"{prefix}{video_id}.txt"
-        Path(filename).write_text(transcript_text, encoding="utf-8")
+        (DISCOURSE_DIR / filename).write_text(transcript_text, encoding="utf-8")
 
 
 save_transcript_files("team_a_", team_a_list)
