@@ -1,4 +1,3 @@
-import ssl
 from pathlib import Path
 
 from youtube_transcript_api import YouTubeTranscriptApi
@@ -12,14 +11,7 @@ CHANNEL_NAME_A = "Fox News"
 CHANNEL_NAME_B = "CNN"
 DISCOURSE_DIR = Path("discourse")
 DISCOURSE_DIR.mkdir(exist_ok=True)
-
-
-def has_transcript(video_id: str) -> bool:
-    try:
-        YouTubeTranscriptApi.list_transcripts(video_id)
-        return True
-    except Exception:
-        return False
+TRANSCRIPT_CACHE: dict[str, str] = {}
 
 
 def normalize_description(item: dict) -> str:
@@ -61,6 +53,49 @@ def is_expected_channel(
         return extracted_name.casefold() == channel_name.casefold()
 
     return False
+
+
+def fetch_transcript_entries(video_id: str):
+    api = YouTubeTranscriptApi()
+    if hasattr(api, "fetch"):
+        return api.fetch(video_id)
+    return YouTubeTranscriptApi.get_transcript(video_id)
+
+
+def fetch_transcript_text(video_id: str) -> str | None:
+    if not video_id:
+        return None
+    if video_id in TRANSCRIPT_CACHE:
+        return TRANSCRIPT_CACHE[video_id]
+
+    try:
+        transcript = fetch_transcript_entries(video_id)
+    except Exception as exc:
+        print(f"transcript fetch failed for {video_id}: {exc}")
+        return None
+
+    text = "\n".join(entry.text for entry in transcript)
+    if text:
+        TRANSCRIPT_CACHE[video_id] = text
+    return text
+
+
+def has_transcript(video_id: str) -> bool:
+    return bool(fetch_transcript_text(video_id))
+
+
+def extract_video_id_from_item(item: dict) -> str:
+    raw_id = item.get("id")
+    if isinstance(raw_id, str):
+        return raw_id.strip()
+    if isinstance(raw_id, dict):
+        return str(raw_id.get("videoId", "") or raw_id.get("id", "")).strip()
+
+    link = str(item.get("link", "")).strip()
+    if "watch?v=" in link:
+        return link.split("watch?v=", 1)[1].split("&", 1)[0]
+
+    return ""
 
 
 def ensure_httpx_compatible() -> None:
@@ -112,7 +147,7 @@ def youtube_search_python_search(
                 continue
             channel_matches += 1
 
-            video_id = item.get("id", "")
+            video_id = extract_video_id_from_item(item)
             if not video_id or video_id in seen_ids:
                 continue
 
@@ -134,6 +169,8 @@ def youtube_search_python_search(
             search.next()
         else:
             break
+
+    print(f'  RESULTS!!!!!    {len(results)}')
 
     if not results:
         print(
@@ -182,19 +219,6 @@ print(f"  Team_B_List len  {len(Team_B_List)}")
 
 team_a_list = Team_A_List
 team_b_list = Team_B_List
-
-
-def fetch_transcript_text(video_id: str) -> str | None:
-    if not video_id:
-        return None
-    try:
-        transcript = YouTubeTranscriptApi().fetch(video_id)
-    except Exception as exc:
-        # print(f"transcript fetch failed for {video_id}: {exc}")
-        print(f"transcript fetch failed for {video_id}")
-        return None
-
-    return "\n".join(entry.text for entry in transcript)
 
 
 def save_transcript_files(prefix: str, items: list[tuple[str, str, str]]) -> None:
