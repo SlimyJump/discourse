@@ -154,7 +154,7 @@ Team_B_List = build_team_list(
 print(f"  Team_A_List len  {len(Team_A_List)}")
 print(f"  Team_B_List len  {len(Team_B_List)}")
 
-for _title, _description, video_id in Team_A_List:
+# for _title, _description, video_id in Team_A_List:
  
 
 ############# GET TRANSCRIPT
@@ -169,7 +169,8 @@ def fetch_transcript_text(video_id: str) -> str | None:
     try:
         transcript = YouTubeTranscriptApi().fetch(video_id)
     except Exception as exc:
-        print(f"transcript fetch failed for {video_id}: {exc}")
+        # print(f"transcript fetch failed for {video_id}: {exc}")
+        print(f"transcript fetch failed for {video_id}")
         return None
 
     return "\n".join(entry.text for entry in transcript)
