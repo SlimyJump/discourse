@@ -1,3 +1,4 @@
+import time
 from pathlib import Path
 
 from youtube_transcript_api import YouTubeTranscriptApi
@@ -136,6 +137,7 @@ def youtube_search_python_search(
     transcript_matches = 0
 
     while len(results) < limit and pages_fetched < page_limit:
+        time.sleep(5)
         data = search.result()
         page_items = data.get("result", [])
         total_items += len(page_items)
