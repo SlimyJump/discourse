@@ -145,6 +145,7 @@ env.bak/
 venv.bak/
 venv_for_discourse/
 discourse/
+news.json
 
 # Spyder project settings
 .spyderproject
