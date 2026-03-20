@@ -1,4 +1,6 @@
+import requests
 import feedparser
+import certifi
 import json
 
 feeds = {
@@ -9,7 +11,18 @@ feeds = {
 all_articles = []
 
 for source, url in feeds.items():
-    feed = feedparser.parse(url)
+
+    response = requests.get(
+        url,
+        headers={"User-Agent": "Mozilla/5.0"},
+        verify=certifi.where()
+    )
+
+    feed = feedparser.parse(response.content)
+
+
+    print("Bozo:", feed.bozo)
+    print("Entries:", len(feed.entries))
 
     for entry in feed.entries:
         article = {
